@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export const Modal = ({
@@ -17,54 +16,45 @@ export const Modal = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const originalBodyOverflow =
-      document.body.style.overflow;
-
-    const originalHtmlOverflow =
-      document.documentElement.style.overflow;
+    const originalOverflow = document.body.style.overflow;
 
     document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
 
     return () => {
-      document.body.style.overflow =
-        originalBodyOverflow;
-
-      document.documentElement.style.overflow =
-        originalHtmlOverflow;
+      document.body.style.overflow = originalOverflow;
     };
   }, [isOpen]);
 
 
   // =========================================================
-  // ESCAPE KEY
+  // ESC KEY
   // =========================================================
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleKeyDown = (event) => {
+    const handleEscape = (event) => {
       if (event.key === 'Escape') {
-        onClose?.();
+        onClose();
       }
     };
 
     document.addEventListener(
       'keydown',
-      handleKeyDown
+      handleEscape
     );
 
     return () => {
       document.removeEventListener(
         'keydown',
-        handleKeyDown
+        handleEscape
       );
     };
   }, [isOpen, onClose]);
 
 
   // =========================================================
-  // CLOSED
+  // DON'T RENDER
   // =========================================================
 
   if (!isOpen) {
@@ -76,196 +66,144 @@ export const Modal = ({
   // MODAL
   // =========================================================
 
-  const modal = (
+  return (
     <div
       className="
         fixed
         inset-0
-        z-[99999]
+        z-[9999]
+        flex
+        items-center
+        justify-center
+        p-4
       "
     >
 
       {/* =====================================================
           BACKDROP
-
-          IMPORTANT:
-          NO backdrop-blur here.
-
-          This prevents the form from becoming visually blurry.
       ====================================================== */}
 
       <div
         className="
           absolute
           inset-0
-          z-0
-          bg-slate-950/75
+          bg-black/70
         "
-        onClick={() => onClose?.()}
+        onClick={onClose}
       />
 
 
       {/* =====================================================
-          CENTERING LAYER
-
-          This layer is above the backdrop.
+          MODAL BOX
       ====================================================== */}
 
       <div
-        className="
-          absolute
-          inset-0
+        className={`
+          relative
           z-10
+          ${maxWidth}
+          w-full
+          max-h-[90vh]
+          rounded-2xl
+          bg-slate-900
+          border
+          border-white/10
+          shadow-2xl
           flex
-          items-center
-          justify-center
-          p-3
-          sm:p-5
-          lg:p-8
-        "
+          flex-col
+          overflow-hidden
+        `}
       >
 
         {/* ===================================================
-            ACTUAL MODAL
-
-            Completely opaque.
-            NOT blurred.
+            HEADER
         ==================================================== */}
 
         <div
-          className={`
-            relative
+          className="
             flex
-            w-full
-            ${maxWidth}
-            max-h-[calc(100vh-24px)]
-            sm:max-h-[calc(100vh-40px)]
-            lg:max-h-[calc(100vh-64px)]
-            flex-col
-            overflow-hidden
-            rounded-2xl
-            border
-            border-slate-700/70
-            bg-slate-950
-            opacity-100
-            shadow-[0_25px_80px_rgba(0,0,0,0.75)]
-          `}
-          onClick={(event) => {
-            event.stopPropagation();
-          }}
+            items-center
+            justify-between
+            shrink-0
+            px-5
+            py-4
+            border-b
+            border-white/10
+            bg-slate-900
+          "
         >
 
-          {/* =================================================
-              HEADER
+          <div className="min-w-0">
 
-              FIXED
-          ================================================== */}
-
-          <div
-            className="
-              flex
-              shrink-0
-              items-center
-              justify-between
-              gap-4
-              border-b
-              border-white/10
-              bg-slate-950
-              px-5
-              py-4
-            "
-          >
-
-            <div className="min-w-0">
-
-              <h2
-                className="
-                  truncate
-                  text-lg
-                  font-bold
-                  text-white
-                "
-              >
-                {title}
-              </h2>
-
-              <p
-                className="
-                  mt-1
-                  text-[10px]
-                  uppercase
-                  tracking-wider
-                  text-slate-500
-                "
-              >
-                Future Transformation
-              </p>
-
-            </div>
-
-
-            {/* CLOSE */}
-
-            <button
-              type="button"
-              onClick={() => onClose?.()}
+            <h2
               className="
-                flex
-                h-9
-                w-9
-                shrink-0
-                items-center
-                justify-center
-                rounded-lg
-                border
-                border-white/10
-                bg-slate-900
-                text-slate-400
-                transition
-                hover:border-white/20
-                hover:bg-slate-800
-                hover:text-white
+                text-lg
+                font-bold
+                text-white
+                truncate
               "
-              aria-label="Close"
             >
-
-              <X className="h-5 w-5" />
-
-            </button>
+              {title}
+            </h2>
 
           </div>
 
 
-          {/* =================================================
-              SCROLLABLE CONTENT
+          <button
+            type="button"
+            onClick={onClose}
+            className="
+              ml-4
+              flex
+              h-9
+              w-9
+              shrink-0
+              items-center
+              justify-center
+              rounded-lg
+              border
+              border-white/10
+              bg-white/5
+              text-slate-400
+              hover:bg-white/10
+              hover:text-white
+              transition
+            "
+            aria-label="Close"
+          >
 
-              THIS IS THE ONLY MAIN MODAL SCROLL AREA.
-          ================================================== */}
+            <X className="w-5 h-5" />
+
+          </button>
+
+        </div>
+
+
+        {/* ===================================================
+            SCROLLABLE BODY
+        ==================================================== */}
+
+        <div
+          className="
+            flex-1
+            min-h-0
+            overflow-y-auto
+            overflow-x-hidden
+            bg-slate-900
+          "
+        >
 
           <div
             className="
-              min-h-0
-              flex-1
-              overflow-y-auto
-              overflow-x-hidden
-              overscroll-contain
-              bg-slate-950
+              w-full
+              px-4
+              py-5
+              sm:px-6
+              lg:px-7
             "
           >
 
-            <div
-              className="
-                w-full
-                px-4
-                py-5
-                sm:px-6
-                lg:px-7
-              "
-            >
-
-              {children}
-
-            </div>
+            {children}
 
           </div>
 
@@ -274,16 +212,6 @@ export const Modal = ({
       </div>
 
     </div>
-  );
-
-
-  // =========================================================
-  // PORTAL
-  // =========================================================
-
-  return createPortal(
-    modal,
-    document.body
   );
 };
 
