@@ -1591,14 +1591,11 @@ return (
   ====================================================== */}
 
   <Modal
-    isOpen={
-      isModalOpen
-    }
-    onClose={
-      closeCreateModal
-    }
-    title="Create Tasks"
-  >
+  isOpen={isModalOpen}
+  onClose={closeCreateModal}
+  title="Create Tasks"
+  maxWidth="max-w-7xl"
+>
 
     <div className="w-full">
 
