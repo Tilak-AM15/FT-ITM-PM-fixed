@@ -1569,15 +1569,12 @@ export const TaskList = () => {
           CREATE TASK MODAL
       ====================================================== */}
 
-      <Modal
-        isOpen={
-          isModalOpen
-        }
-        onClose={
-          closeCreateModal
-        }
-        title="Create Tasks"
-      >
+<Modal
+  isOpen={isModalOpen}
+  onClose={closeCreateModal}
+  title="Create Tasks"
+  maxWidth="max-w-7xl"
+>
 
         <div className="w-full">
 
@@ -1807,12 +1804,12 @@ export const TaskList = () => {
             }
           >
 
-            <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-950/40">
+            <div className="border border-white/10 rounded-xl bg-slate-950/40 overflow-visible">
 
               <div
-                id="bulk-task-scroll-container"
-                className="overflow-auto max-h-[58vh]"
-              >
+  id="bulk-task-scroll-container"
+  className="overflow-x-auto overflow-y-auto max-h-[58vh]"
+>
 
                 <table className="w-full min-w-[1250px] border-collapse">
 
@@ -1945,7 +1942,23 @@ export const TaskList = () => {
                                     loadingFormData ||
                                     bulkSubmitting
                                   }
-                                  className="w-full min-h-[42px] px-3 py-2 rounded-lg border border-white/10 bg-slate-900 text-left hover:border-indigo-500/40 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                                  className="
+  w-full
+  min-h-[46px]
+  px-3
+  py-2.5
+  rounded-lg
+  border
+  border-white/10
+  bg-slate-900
+  text-left
+  hover:border-indigo-500/50
+  hover:bg-slate-800
+  focus:outline-none
+  focus:ring-2
+  focus:ring-indigo-500/30
+  transition
+"
                                 >
 
                                   <div className="flex items-center justify-between gap-2">
@@ -2057,8 +2070,24 @@ export const TaskList = () => {
 
                                 {isDropdownOpen && (
 
-                                  <div className="absolute left-0 top-full mt-2 w-[280px] z-[100] rounded-xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/40 overflow-hidden">
-
+                                  <div
+  className="
+    absolute
+    left-0
+    top-full
+    mt-2
+    w-[340px]
+    max-w-[calc(100vw-40px)]
+    z-[9999]
+    rounded-xl
+    border
+    border-white/10
+    bg-slate-900
+    shadow-2xl
+    shadow-black/50
+    overflow-hidden
+  "
+>
                                     <div className="px-3 py-2.5 border-b border-white/10 flex items-center justify-between">
 
                                       <div>
