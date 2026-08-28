@@ -613,5 +613,99 @@ button, input, select, textarea { font: inherit; }
 .pm-demo__grid svg{width:12px;height:12px;color:#a2abba;}
 .pm-login__footer{display:flex;align-items:center;justify-content:center;gap:5px;color:#9aa3b2;font-size:9px;margin-top:20px;}
 .pm-login__footer svg{width:12px;height:12px;color:var(--pm-success);}
+/* =========================================================
+   FUTURE TRANSFORMATION BRANDING
+   ========================================================= */
+
+.pm-user-initials,
+.pm-profile-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: rgba(79, 70, 229, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.pm-user-initials {
+  width: 34px;
+  height: 34px;
+}
+
+.pm-profile-initials {
+  width: 42px;
+  height: 42px;
+}
+
+.pm-persona__avatar {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: rgba(79, 70, 229, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pm-header__brand {
+  min-width: 240px;
+}
+
+.pm-brand-copy strong {
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+.pm-brand-copy span {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pm-sidebar__workspace-text span {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+
+/* Enterprise tables */
+
+table {
+  border-collapse: collapse;
+}
+
+table th {
+  white-space: nowrap;
+}
+
+table td {
+  vertical-align: middle;
+}
+
+/* Better horizontal scrolling on small screens */
+
+.overflow-x-auto {
+  scrollbar-width: thin;
+}
+
+/* Bulk task creation */
+
+#bulk-task-form table input,
+#bulk-task-form table select {
+  min-height: 34px;
+}
+
+#bulk-task-form table textarea {
+  min-height: 60px;
+}
 @media(max-width:900px){.pm-login__layout{grid-template-columns:1fr;gap:25px;max-width:620px}.pm-login__intro{text-align:center}.pm-login__brand{justify-content:center;margin-bottom:25px}.pm-login__flow{justify-content:center}.pm-login__intro h1{font-size:38px}.pm-login__intro>p{margin:auto}.pm-login{padding:20px 14px;}.pm-login__card{padding:22px;}}
 @media(max-width:480px){.pm-login__intro h1{font-size:31px}.pm-login__flow{display:none}.pm-demo__grid{grid-template-columns:1fr}.pm-login__card{padding:18px;}}
