@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { taskApi, projectApi, userApi } from '../../api/endpoints';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../../context/AuthContext';
+
 import {
   CheckSquare,
   Search,
@@ -14,12 +15,14 @@ import {
   Trash2,
   PlusCircle,
   Layers,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
 
 export const TaskList = () => {
   const { user, hasRole } = useAuth();
-
   const navigate = useNavigate();
 
   // =========================================================
@@ -46,11 +49,11 @@ export const TaskList = () => {
   // =========================================================
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const [projectId, setProjectId] = useState('');
 
   // =========================================================
-  // SINGLE TASK FORM
+  // SINGLE TASK STATE
+  // Kept so existing logic remains compatible.
   // =========================================================
 
   const [title, setTitle] = useState('');
@@ -75,20 +78,34 @@ export const TaskList = () => {
     assigneeIds: [],
   });
 
-  const [bulkTasks, setBulkTasks] = useState(
+  /*
+   * IMPORTANT:
+   * Start with 5 rows instead of 15.
+   */
+  const [bulkTasks, setBulkTasks] = useState(() =>
     Array.from(
-      { length: 15 },
+      { length: 5 },
       () => createEmptyTaskRow()
     )
   );
 
-  const [bulkSubmitting, setBulkSubmitting] =
-    useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
 
   const [bulkProgress, setBulkProgress] = useState({
     completed: 0,
     total: 0,
   });
+
+  /*
+   * Which task row's assignee dropdown is open.
+   * null = all closed.
+   */
+  const [openAssigneeRow, setOpenAssigneeRow] = useState(null);
+
+  /*
+   * Used for closing the custom dropdown when clicking outside.
+   */
+  const assigneeDropdownRefs = useRef({});
 
   // =========================================================
   // LOAD TASKS + PROJECTS
@@ -178,8 +195,7 @@ export const TaskList = () => {
       setProjects(finalProjects);
 
       // -------------------------------------------------------
-      // Keep current project if valid
-      // Otherwise select first project
+      // Keep valid project selected
       // -------------------------------------------------------
 
       if (finalProjects.length > 0) {
@@ -193,9 +209,7 @@ export const TaskList = () => {
 
           return valid
             ? currentProjectId
-            : String(
-                finalProjects[0].id
-              );
+            : String(finalProjects[0].id);
         });
       } else {
         setProjectId('');
@@ -272,11 +286,59 @@ export const TaskList = () => {
   }, []);
 
   // =========================================================
+  // CLOSE ASSIGNEE DROPDOWN WHEN CLICKING OUTSIDE
+  // =========================================================
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (openAssigneeRow === null) {
+        return;
+      }
+
+      const currentRef =
+        assigneeDropdownRefs.current[
+          openAssigneeRow
+        ];
+
+      if (
+        currentRef &&
+        !currentRef.contains(event.target)
+      ) {
+        setOpenAssigneeRow(null);
+      }
+    };
+
+    document.addEventListener(
+      'mousedown',
+      handleOutsideClick
+    );
+
+    return () => {
+      document.removeEventListener(
+        'mousedown',
+        handleOutsideClick
+      );
+    };
+  }, [openAssigneeRow]);
+
+  // =========================================================
   // OPEN CREATE MODAL
   // =========================================================
 
   const openCreateModal = async () => {
     setIsModalOpen(true);
+
+    /*
+     * Every time modal opens, start with 5 clean rows.
+     */
+    setBulkTasks(
+      Array.from(
+        { length: 5 },
+        () => createEmptyTaskRow()
+      )
+    );
+
+    setOpenAssigneeRow(null);
 
     await Promise.all([
       loadTasks(),
@@ -296,13 +358,12 @@ export const TaskList = () => {
       return;
     }
 
+    setOpenAssigneeRow(null);
     setIsModalOpen(false);
   };
 
   // =========================================================
   // SELECTED PROJECT
-  // IMPORTANT:
-  // Keep these variables component-scoped.
   // =========================================================
 
   const selectedProject = projects.find(
@@ -351,7 +412,7 @@ export const TaskList = () => {
       : employees;
 
   // =========================================================
-  // ASSIGNEE CHANGE
+  // SINGLE TASK ASSIGNEE CHANGE
   // =========================================================
 
   const handleAssigneeChange = (e) => {
@@ -366,7 +427,7 @@ export const TaskList = () => {
   };
 
   // =========================================================
-  // REMOVE ASSIGNEE
+  // REMOVE SINGLE ASSIGNEE
   // =========================================================
 
   const removeAssignee = (id) => {
@@ -451,9 +512,7 @@ export const TaskList = () => {
           dueDate || undefined,
 
         assigneeIds:
-          assigneeIds.map(
-            Number
-          ),
+          assigneeIds.map(Number),
       };
 
       console.log(
@@ -496,7 +555,7 @@ export const TaskList = () => {
   };
 
   // =========================================================
-  // BULK TASK FUNCTIONS
+  // UPDATE BULK TASK
   // =========================================================
 
   const updateBulkTask = (
@@ -545,24 +604,138 @@ export const TaskList = () => {
   };
 
   // =========================================================
-  // ADD BULK ROWS
+  // TOGGLE ONE ASSIGNEE
   // =========================================================
 
-  const addBulkTaskRows = (
-    count = 5
+  const toggleBulkAssignee = (
+    taskIndex,
+    employeeId
   ) => {
+    const numericId =
+      Number(employeeId);
+
+    setBulkTasks(
+      (current) =>
+        current.map(
+          (task, index) => {
+            if (
+              index !== taskIndex
+            ) {
+              return task;
+            }
+
+            const currentIds =
+              Array.isArray(
+                task.assigneeIds
+              )
+                ? task.assigneeIds.map(
+                    Number
+                  )
+                : [];
+
+            const alreadySelected =
+              currentIds.includes(
+                numericId
+              );
+
+            const newIds =
+              alreadySelected
+                ? currentIds.filter(
+                    (id) =>
+                      id !==
+                      numericId
+                  )
+                : [
+                    ...currentIds,
+                    numericId,
+                  ];
+
+            return {
+              ...task,
+              assigneeIds:
+                newIds,
+            };
+          }
+        )
+    );
+  };
+
+  // =========================================================
+  // REMOVE BULK ASSIGNEE
+  // =========================================================
+
+  const removeBulkAssignee = (
+    taskIndex,
+    employeeId
+  ) => {
+    const numericId =
+      Number(employeeId);
+
+    setBulkTasks(
+      (current) =>
+        current.map(
+          (task, index) =>
+            index === taskIndex
+              ? {
+                  ...task,
+                  assigneeIds:
+                    (
+                      task.assigneeIds ||
+                      []
+                    ).filter(
+                      (id) =>
+                        Number(id) !==
+                        numericId
+                    ),
+                }
+              : task
+        )
+    );
+  };
+
+  // =========================================================
+  // GET EMPLOYEE
+  // =========================================================
+
+  const getEmployeeById = (
+    id
+  ) => {
+    return employees.find(
+      (employee) =>
+        Number(employee.id) ===
+        Number(id)
+    );
+  };
+
+  // =========================================================
+  // ADD ONE BULK TASK ROW
+  // IMPORTANT:
+  // Adds exactly ONE task.
+  // =========================================================
+
+  const addBulkTaskRow = () => {
     setBulkTasks(
       (current) => [
         ...current,
-        ...Array.from(
-          {
-            length: count,
-          },
-          () =>
-            createEmptyTaskRow()
-        ),
+        createEmptyTaskRow(),
       ]
     );
+
+    /*
+     * Automatically scroll toward the
+     * newly added row after React renders it.
+     */
+    setTimeout(() => {
+      const container =
+        document.getElementById(
+          'bulk-task-scroll-container'
+        );
+
+      if (container) {
+        container.scrollTop =
+          container.scrollHeight;
+      }
+    }, 50);
   };
 
   // =========================================================
@@ -579,6 +752,8 @@ export const TaskList = () => {
             i !== index
         )
     );
+
+    setOpenAssigneeRow(null);
   };
 
   // =========================================================
@@ -625,18 +800,18 @@ export const TaskList = () => {
 
   // =========================================================
   // CLEAR BULK TASKS
+  // CLEAR = RESET TO 5 ROWS
   // =========================================================
 
   const clearBulkTasks = () => {
     setBulkTasks(
       Array.from(
-        {
-          length: 15,
-        },
-        () =>
-          createEmptyTaskRow()
+        { length: 5 },
+        () => createEmptyTaskRow()
       )
     );
+
+    setOpenAssigneeRow(null);
   };
 
   // =========================================================
@@ -680,15 +855,14 @@ export const TaskList = () => {
     });
 
     let completed = 0;
-
     const failed = [];
 
     try {
       /*
-       * Use the EXISTING task API.
+       * IMPORTANT:
+       * Keep using the existing task API.
        *
-       * This means backend changes are not required.
-       * Each row is created as an ordinary task.
+       * Each row is created as a normal task.
        */
 
       for (
@@ -703,7 +877,9 @@ export const TaskList = () => {
 
             taskOwnerId:
               user?.id
-                ? Number(user.id)
+                ? Number(
+                    user.id
+                  )
                 : undefined,
 
             title:
@@ -735,7 +911,7 @@ export const TaskList = () => {
           };
 
           console.log(
-            'Creating bulk task:',
+            'Creating task:',
             payload
           );
 
@@ -883,17 +1059,19 @@ export const TaskList = () => {
     );
 
   // =========================================================
-  // GET EMPLOYEE
+  // ASSIGNEE DISPLAY
   // =========================================================
 
-  const getEmployeeById = (
-    id
+  const getSelectedAssigneeNames = (
+    ids
   ) => {
-    return employees.find(
-      (employee) =>
-        Number(employee.id) ===
-        Number(id)
-    );
+    return (
+      ids || []
+    )
+      .map((id) =>
+        getEmployeeById(id)
+      )
+      .filter(Boolean);
   };
 
   // =========================================================
@@ -910,17 +1088,13 @@ export const TaskList = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-white/5">
 
         <div>
-
           <div className="flex items-center gap-3">
 
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-
               <CheckSquare className="w-5 h-5 text-indigo-400" />
-
             </div>
 
             <div>
-
               <h1 className="text-2xl lg:text-3xl font-extrabold text-white font-heading">
                 Tasks Management
               </h1>
@@ -928,11 +1102,9 @@ export const TaskList = () => {
               <p className="text-xs text-slate-400 mt-1">
                 Future Transformation • Manage assignments, deadlines and execution.
               </p>
-
             </div>
 
           </div>
-
         </div>
 
         <div className="flex items-center gap-3">
@@ -945,13 +1117,11 @@ export const TaskList = () => {
             }
             className="btn btn-secondary btn-sm"
           >
-
             <ListTodo className="w-4 h-4 text-cyan-400" />
 
             <span>
               Kanban Board
             </span>
-
           </button>
 
           {hasRole(
@@ -966,18 +1136,15 @@ export const TaskList = () => {
               }
               className="btn btn-primary btn-sm"
             >
-
               <Plus className="w-4 h-4" />
 
               <span>
                 Create Tasks
               </span>
-
             </button>
           )}
 
         </div>
-
       </div>
 
       {/* =====================================================
@@ -1021,7 +1188,6 @@ export const TaskList = () => {
               }
               className="form-select text-xs py-2"
             >
-
               <option value="ALL">
                 All Statuses
               </option>
@@ -1045,7 +1211,6 @@ export const TaskList = () => {
               <option value="CANCELLED">
                 Cancelled
               </option>
-
             </select>
 
             <select
@@ -1059,7 +1224,6 @@ export const TaskList = () => {
               }
               className="form-select text-xs py-2"
             >
-
               <option value="ALL">
                 All Priorities
               </option>
@@ -1079,13 +1243,11 @@ export const TaskList = () => {
               <option value="LOW">
                 Low
               </option>
-
             </select>
 
           </div>
 
         </div>
-
       </div>
 
       {/* =====================================================
@@ -1095,7 +1257,6 @@ export const TaskList = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
         <div className="glass-card p-4">
-
           <p className="text-[10px] uppercase tracking-wider text-slate-500">
             Total Tasks
           </p>
@@ -1103,11 +1264,9 @@ export const TaskList = () => {
           <p className="text-xl font-extrabold text-white mt-1">
             {tasks.length}
           </p>
-
         </div>
 
         <div className="glass-card p-4">
-
           <p className="text-[10px] uppercase tracking-wider text-slate-500">
             In Progress
           </p>
@@ -1121,11 +1280,9 @@ export const TaskList = () => {
               ).length
             }
           </p>
-
         </div>
 
         <div className="glass-card p-4">
-
           <p className="text-[10px] uppercase tracking-wider text-slate-500">
             Completed
           </p>
@@ -1139,11 +1296,9 @@ export const TaskList = () => {
               ).length
             }
           </p>
-
         </div>
 
         <div className="glass-card p-4">
-
           <p className="text-[10px] uppercase tracking-wider text-slate-500">
             Overdue
           </p>
@@ -1156,7 +1311,6 @@ export const TaskList = () => {
               ).length
             }
           </p>
-
         </div>
 
       </div>
@@ -1170,13 +1324,10 @@ export const TaskList = () => {
         {loading ? (
 
           <div className="flex items-center justify-center py-20">
-
             <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-
           </div>
 
-        ) : filteredTasks.length ===
-          0 ? (
+        ) : filteredTasks.length === 0 ? (
 
           <div className="text-center py-16 text-slate-400">
 
@@ -1195,7 +1346,6 @@ export const TaskList = () => {
             <table className="modern-table">
 
               <thead>
-
                 <tr>
 
                   <th>
@@ -1235,7 +1385,6 @@ export const TaskList = () => {
                   </th>
 
                 </tr>
-
               </thead>
 
               <tbody>
@@ -1268,12 +1417,10 @@ export const TaskList = () => {
                       </td>
 
                       <td>
-
                         <span className="text-xs text-slate-300 font-medium block truncate max-w-xs">
                           {task.projectName ||
                             '—'}
                         </span>
-
                       </td>
 
                       <td>
@@ -1281,8 +1428,7 @@ export const TaskList = () => {
                         <div className="flex flex-wrap items-center gap-1">
 
                           {task.assignees &&
-                          task.assignees
-                            .length >
+                          task.assignees.length >
                             0 ? (
 
                             task.assignees.map(
@@ -1303,7 +1449,6 @@ export const TaskList = () => {
                                     assignee.username}
 
                                 </span>
-
                               )
                             )
 
@@ -1320,13 +1465,11 @@ export const TaskList = () => {
                       </td>
 
                       <td>
-
                         <StatusBadge
                           status={
                             task.priority
                           }
                         />
-
                       </td>
 
                       <td className="text-xs font-semibold text-slate-200">
@@ -1436,21 +1579,38 @@ export const TaskList = () => {
         title="Create Tasks"
       >
 
-        <div className="space-y-5">
+        <div className="w-full">
 
-          {/* HEADER */}
+          {/* =================================================
+              MODAL HEADER
+          ================================================= */}
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-5">
 
             <div>
 
-              <h3 className="text-sm font-bold text-white">
-                Bulk Task Creation
-              </h3>
+              <div className="flex items-center gap-3">
 
-              <p className="text-[11px] text-slate-400 mt-1">
-                Create multiple tasks under the selected project and assign them to team members.
-              </p>
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+
+                  <Layers className="w-5 h-5 text-indigo-400" />
+
+                </div>
+
+                <div>
+
+                  <h2 className="text-lg font-bold text-white">
+                    Bulk Task Creation
+                  </h2>
+
+                  <p className="text-xs text-slate-400 mt-1">
+                    Create multiple tasks under the selected project.
+                    Add and assign tasks individually.
+                  </p>
+
+                </div>
+
+              </div>
 
             </div>
 
@@ -1458,20 +1618,18 @@ export const TaskList = () => {
 
               <button
                 type="button"
-                onClick={() =>
-                  addBulkTaskRows(
-                    5
-                  )
+                onClick={
+                  addBulkTaskRow
                 }
                 disabled={
                   bulkSubmitting
                 }
-                className="btn btn-secondary btn-sm"
+                className="btn btn-primary btn-sm flex items-center gap-2"
               >
 
                 <PlusCircle className="w-4 h-4" />
 
-                Add 5
+                Add Task
 
               </button>
 
@@ -1485,18 +1643,20 @@ export const TaskList = () => {
                 }
                 className="btn btn-secondary btn-sm"
               >
-                Clear
+                Reset
               </button>
 
             </div>
 
           </div>
 
-          {/* PROJECT */}
+          {/* =================================================
+              PROJECT
+          ================================================= */}
 
-          <div className="form-group">
+          <div className="mb-5">
 
-            <label className="form-label">
+            <label className="block text-xs font-semibold text-slate-300 mb-2">
               Project *
             </label>
 
@@ -1504,12 +1664,20 @@ export const TaskList = () => {
               value={
                 projectId
               }
-              onChange={(e) =>
+              onChange={(e) => {
                 setProjectId(
                   e.target.value
-                )
-              }
-              className="form-select text-xs"
+                );
+
+                /*
+                 * Close any open assignee menu
+                 * because project members may change.
+                 */
+                setOpenAssigneeRow(
+                  null
+                );
+              }}
+              className="form-select text-sm w-full"
               required
               disabled={
                 loadingFormData &&
@@ -1551,40 +1719,87 @@ export const TaskList = () => {
 
             </select>
 
-            {projects.length ===
-              0 && (
-
-              <p className="text-[11px] text-amber-400 mt-1">
-                No projects are available for this account.
+            {selectedProject && (
+              <p className="text-[11px] text-slate-500 mt-2">
+                {selectedProject.projectManager
+                  ? `Project Manager: ${
+                      selectedProject
+                        .projectManager
+                        .fullName ||
+                      selectedProject
+                        .projectManager
+                        .username ||
+                      'Assigned'
+                    }`
+                  : 'Project selected'}
               </p>
-
             )}
 
           </div>
 
-          {/* TASK COUNT */}
+          {/* =================================================
+              TASK COUNT SUMMARY
+          ================================================= */}
 
-          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-indigo-500/5 border border-indigo-500/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 mb-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
 
-              <Layers className="w-4 h-4 text-indigo-400" />
+              <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                <Layers className="w-4 h-4 text-indigo-400" />
+              </div>
 
-              <span className="text-xs text-slate-300">
-                Task rows
-              </span>
+              <div>
+
+                <p className="text-xs font-semibold text-slate-200">
+                  Task rows
+                </p>
+
+                <p className="text-[10px] text-slate-500">
+                  Empty rows will not be submitted.
+                </p>
+
+              </div>
 
             </div>
 
-            <strong className="text-sm text-white">
-              {
-                bulkTasks.length
-              }
-            </strong>
+            <div className="flex items-center gap-4">
+
+              <div className="text-right">
+
+                <p className="text-xl font-extrabold text-white leading-none">
+                  {
+                    bulkTasks.length
+                  }
+                </p>
+
+                <p className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">
+                  Rows
+                </p>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  addBulkTaskRow
+                }
+                disabled={
+                  bulkSubmitting
+                }
+                className="px-3 py-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-semibold hover:bg-indigo-500/20 transition flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add one
+              </button>
+
+            </div>
 
           </div>
 
-          {/* BULK FORM */}
+          {/* =================================================
+              BULK FORM
+          ================================================= */}
 
           <form
             onSubmit={
@@ -1592,13 +1807,16 @@ export const TaskList = () => {
             }
           >
 
-            <div className="border border-white/10 rounded-xl overflow-hidden">
+            <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-950/40">
 
-              <div className="overflow-x-auto max-h-[55vh]">
+              <div
+                id="bulk-task-scroll-container"
+                className="overflow-auto max-h-[58vh]"
+              >
 
-                <table className="w-full min-w-[1150px]">
+                <table className="w-full min-w-[1250px] border-collapse">
 
-                  <thead className="sticky top-0 z-10 bg-slate-950">
+                  <thead className="sticky top-0 z-20 bg-slate-950">
 
                     <tr className="border-b border-white/10">
 
@@ -1606,12 +1824,12 @@ export const TaskList = () => {
                         #
                       </th>
 
-                      <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 min-w-[220px]">
+                      <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 min-w-[240px]">
                         Task
                       </th>
 
-                      <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 min-w-[230px]">
-                        Assignee(s)
+                      <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 min-w-[280px]">
+                        Assignees
                       </th>
 
                       <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 w-32">
@@ -1622,11 +1840,11 @@ export const TaskList = () => {
                         Hours
                       </th>
 
-                      <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 w-36">
+                      <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 w-40">
                         Due Date
                       </th>
 
-                      <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 min-w-[220px]">
+                      <th className="px-3 py-3 text-left text-[10px] uppercase tracking-wider text-slate-500 min-w-[230px]">
                         Description
                       </th>
 
@@ -1644,319 +1862,528 @@ export const TaskList = () => {
                       (
                         task,
                         index
-                      ) => (
+                      ) => {
 
-                        <tr
-                          key={
-                            index
-                          }
-                          className="border-b border-white/5 hover:bg-white/[0.02]"
-                        >
+                        const selectedEmployees =
+                          getSelectedAssigneeNames(
+                            task.assigneeIds
+                          );
 
-                          {/* NUMBER */}
+                        const isDropdownOpen =
+                          openAssigneeRow ===
+                          index;
 
-                          <td className="px-3 py-3 text-xs text-slate-500 font-mono">
-                            {index +
-                              1}
-                          </td>
+                        return (
 
-                          {/* TITLE */}
+                          <tr
+                            key={
+                              index
+                            }
+                            className="border-b border-white/5 hover:bg-white/[0.025] transition"
+                          >
 
-                          <td className="px-3 py-3">
+                            {/* NUMBER */}
 
-                            <input
-                              type="text"
-                              value={
-                                task.title
-                              }
-                              onChange={(
-                                e
-                              ) =>
-                                updateBulkTask(
-                                  index,
-                                  'title',
+                            <td className="px-3 py-3 align-top">
+
+                              <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[10px] text-slate-400 font-mono">
+                                {index +
+                                  1}
+                              </div>
+
+                            </td>
+
+                            {/* TITLE */}
+
+                            <td className="px-3 py-3 align-top">
+
+                              <input
+                                type="text"
+                                value={
+                                  task.title
+                                }
+                                onChange={(
                                   e
-                                    .target
-                                    .value
-                                )
-                              }
-                              placeholder="Task title"
-                              className="form-input text-xs w-full"
-                            />
+                                ) =>
+                                  updateBulkTask(
+                                    index,
+                                    'title',
+                                    e.target
+                                      .value
+                                  )
+                                }
+                                placeholder="Enter task title"
+                                className="form-input text-xs w-full"
+                              />
 
-                          </td>
+                            </td>
 
-                          {/* ASSIGNEES */}
+                            {/* CUSTOM ASSIGNEE DROPDOWN */}
 
-                          <td className="px-3 py-3">
-
-                            <select
-                              multiple
-                              value={(
-                                task.assigneeIds ||
-                                []
-                              ).map(
-                                String
-                              )}
-                              onChange={(
-                                e
-                              ) => {
-
-                                const selected =
-                                  Array.from(
-                                    e
-                                      .target
-                                      .selectedOptions,
-                                    (
-                                      option
-                                    ) =>
-                                      Number(
-                                        option.value
-                                      )
-                                  );
-
-                                updateBulkAssignees(
-                                  index,
-                                  selected
-                                );
-
+                            <td
+                              className="px-3 py-3 align-top"
+                              ref={(element) => {
+                                assigneeDropdownRefs.current[
+                                  index
+                                ] =
+                                  element;
                               }}
-                              className="form-select text-xs min-h-[82px] w-full"
-                              disabled={
-                                loadingFormData
-                              }
                             >
 
-                              {assignableEmployees.length ===
-                              0 ? (
-
-                                <option
-                                  value=""
-                                  disabled
-                                >
-
-                                  {loadingFormData
-                                    ? 'Loading employees...'
-                                    : projectMemberIds.length >
-                                        0
-                                      ? 'No active project members'
-                                      : 'No active employees'}
-
-                                </option>
-
-                              ) : (
-
-                                assignableEmployees.map(
-                                  (
-                                    employee
-                                  ) => (
-
-                                    <option
-                                      key={
-                                        employee.id
-                                      }
-                                      value={
-                                        employee.id
-                                      }
-                                    >
-
-                                      {employee.fullName ||
-                                        employee.username}
-
-                                      {employee.username &&
-                                      employee.fullName
-                                        ? ` (${employee.username})`
-                                        : ''}
-
-                                    </option>
-
-                                  )
-                                )
-
-                              )}
-
-                            </select>
-
-                            <p className="text-[9px] text-slate-500 mt-1">
-                              Ctrl/Cmd + click for multiple.
-                            </p>
-
-                          </td>
-
-                          {/* PRIORITY */}
-
-                          <td className="px-3 py-3">
-
-                            <select
-                              value={
-                                task.priority
-                              }
-                              onChange={(
-                                e
-                              ) =>
-                                updateBulkTask(
-                                  index,
-                                  'priority',
-                                  e
-                                    .target
-                                    .value
-                                )
-                              }
-                              className="form-select text-xs"
-                            >
-
-                              <option value="LOW">
-                                Low
-                              </option>
-
-                              <option value="MEDIUM">
-                                Medium
-                              </option>
-
-                              <option value="HIGH">
-                                High
-                              </option>
-
-                              <option value="CRITICAL">
-                                Critical
-                              </option>
-
-                            </select>
-
-                          </td>
-
-                          {/* HOURS */}
-
-                          <td className="px-3 py-3">
-
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.5"
-                              value={
-                                task.estimatedHours
-                              }
-                              onChange={(
-                                e
-                              ) =>
-                                updateBulkTask(
-                                  index,
-                                  'estimatedHours',
-                                  e
-                                    .target
-                                    .value
-                                )
-                              }
-                              className="form-input text-xs w-full"
-                            />
-
-                          </td>
-
-                          {/* DATE */}
-
-                          <td className="px-3 py-3">
-
-                            <input
-                              type="date"
-                              value={
-                                task.dueDate
-                              }
-                              onChange={(
-                                e
-                              ) =>
-                                updateBulkTask(
-                                  index,
-                                  'dueDate',
-                                  e
-                                    .target
-                                    .value
-                                )
-                              }
-                              className="form-input text-xs w-full"
-                            />
-
-                          </td>
-
-                          {/* DESCRIPTION */}
-
-                          <td className="px-3 py-3">
-
-                            <input
-                              type="text"
-                              value={
-                                task.description
-                              }
-                              onChange={(
-                                e
-                              ) =>
-                                updateBulkTask(
-                                  index,
-                                  'description',
-                                  e
-                                    .target
-                                    .value
-                                )
-                              }
-                              placeholder="Short description"
-                              className="form-input text-xs w-full"
-                            />
-
-                          </td>
-
-                          {/* ACTIONS */}
-
-                          <td className="px-3 py-3">
-
-                            <div className="flex items-center justify-center gap-1">
-
-                              <button
-                                type="button"
-                                title="Duplicate task"
-                                onClick={() =>
-                                  duplicateBulkTaskRow(
-                                    index
-                                  )
-                                }
-                                disabled={
-                                  bulkSubmitting
-                                }
-                                className="p-2 rounded-md text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10"
-                              >
-
-                                <Copy className="w-3.5 h-3.5" />
-
-                              </button>
-
-                              {bulkTasks.length >
-                                1 && (
+                              <div className="relative">
 
                                 <button
                                   type="button"
-                                  title="Remove task"
                                   onClick={() =>
-                                    removeBulkTaskRow(
+                                    setOpenAssigneeRow(
+                                      isDropdownOpen
+                                        ? null
+                                        : index
+                                    )
+                                  }
+                                  disabled={
+                                    loadingFormData ||
+                                    bulkSubmitting
+                                  }
+                                  className="w-full min-h-[42px] px-3 py-2 rounded-lg border border-white/10 bg-slate-900 text-left hover:border-indigo-500/40 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                                >
+
+                                  <div className="flex items-center justify-between gap-2">
+
+                                    <div className="flex items-center gap-2 min-w-0">
+
+                                      <Users className="w-4 h-4 text-indigo-400 shrink-0" />
+
+                                      {selectedEmployees.length ===
+                                      0 ? (
+
+                                        <span className="text-xs text-slate-500">
+                                          Select assignees
+                                        </span>
+
+                                      ) : (
+
+                                        <span className="text-xs text-slate-200 truncate">
+                                          {
+                                            selectedEmployees.length
+                                          }{' '}
+                                          selected
+                                        </span>
+
+                                      )}
+
+                                    </div>
+
+                                    <ChevronDown
+                                      className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${
+                                        isDropdownOpen
+                                          ? 'rotate-180'
+                                          : ''
+                                      }`}
+                                    />
+
+                                  </div>
+
+                                </button>
+
+                                {/* SELECTED ASSIGNEE CHIPS */}
+
+                                {selectedEmployees.length >
+                                  0 && (
+
+                                  <div className="flex flex-wrap gap-1 mt-2">
+
+                                    {selectedEmployees
+                                      .slice(
+                                        0,
+                                        3
+                                      )
+                                      .map(
+                                        (
+                                          employee
+                                        ) => (
+
+                                          <span
+                                            key={
+                                              employee.id
+                                            }
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-200"
+                                          >
+
+                                            <span className="truncate max-w-[120px]">
+                                              {employee.fullName ||
+                                                employee.username}
+                                            </span>
+
+                                            <button
+                                              type="button"
+                                              onClick={(
+                                                event
+                                              ) => {
+                                                event.stopPropagation();
+
+                                                removeBulkAssignee(
+                                                  index,
+                                                  employee.id
+                                                );
+                                              }}
+                                              className="text-slate-500 hover:text-rose-300"
+                                            >
+                                              <X className="w-3 h-3" />
+                                            </button>
+
+                                          </span>
+
+                                        )
+                                      )}
+
+                                    {selectedEmployees.length >
+                                      3 && (
+
+                                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-800 border border-white/10 text-[10px] text-slate-400">
+                                        +
+                                        {selectedEmployees.length -
+                                          3}{' '}
+                                        more
+                                      </span>
+
+                                    )}
+
+                                  </div>
+
+                                )}
+
+                                {/* DROPDOWN MENU */}
+
+                                {isDropdownOpen && (
+
+                                  <div className="absolute left-0 top-full mt-2 w-[280px] z-[100] rounded-xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/40 overflow-hidden">
+
+                                    <div className="px-3 py-2.5 border-b border-white/10 flex items-center justify-between">
+
+                                      <div>
+
+                                        <p className="text-xs font-semibold text-white">
+                                          Assign team members
+                                        </p>
+
+                                        <p className="text-[9px] text-slate-500 mt-0.5">
+                                          Select one or more
+                                        </p>
+
+                                      </div>
+
+                                      {selectedEmployees.length >
+                                        0 && (
+
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            updateBulkAssignees(
+                                              index,
+                                              []
+                                            )
+                                          }
+                                          className="text-[10px] text-indigo-300 hover:text-indigo-200"
+                                        >
+                                          Clear
+                                        </button>
+
+                                      )}
+
+                                    </div>
+
+                                    <div className="max-h-[230px] overflow-y-auto p-1.5">
+
+                                      {loadingFormData ? (
+
+                                        <div className="px-3 py-5 text-center text-xs text-slate-500">
+                                          Loading employees...
+                                        </div>
+
+                                      ) : assignableEmployees.length ===
+                                        0 ? (
+
+                                        <div className="px-3 py-5 text-center">
+
+                                          <Users className="w-5 h-5 mx-auto text-slate-600 mb-2" />
+
+                                          <p className="text-xs text-slate-500">
+                                            {projectMemberIds.length >
+                                            0
+                                              ? 'No active project members'
+                                              : 'No active employees'}
+                                          </p>
+
+                                        </div>
+
+                                      ) : (
+
+                                        assignableEmployees.map(
+                                          (
+                                            employee
+                                          ) => {
+
+                                            const isSelected =
+                                              (
+                                                task.assigneeIds ||
+                                                []
+                                              ).map(
+                                                Number
+                                              ).includes(
+                                                Number(
+                                                  employee.id
+                                                )
+                                              );
+
+                                            return (
+
+                                              <button
+                                                type="button"
+                                                key={
+                                                  employee.id
+                                                }
+                                                onClick={() =>
+                                                  toggleBulkAssignee(
+                                                    index,
+                                                    employee.id
+                                                  )
+                                                }
+                                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition ${
+                                                  isSelected
+                                                    ? 'bg-indigo-500/10'
+                                                    : 'hover:bg-white/5'
+                                                }`}
+                                              >
+
+                                                <span
+                                                  className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                                    isSelected
+                                                      ? 'bg-indigo-500 border-indigo-500'
+                                                      : 'border-slate-600 bg-slate-950'
+                                                  }`}
+                                                >
+                                                  {isSelected && (
+                                                    <Check className="w-3 h-3 text-white" />
+                                                  )}
+                                                </span>
+
+                                                <span className="w-7 h-7 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-[10px] font-bold text-slate-300">
+                                                  {(
+                                                    employee.fullName ||
+                                                    employee.username ||
+                                                    '?'
+                                                  )
+                                                    .charAt(
+                                                      0
+                                                    )
+                                                    .toUpperCase()}
+                                                </span>
+
+                                                <span className="min-w-0 flex-1">
+
+                                                  <span className="block text-xs text-slate-200 truncate">
+                                                    {employee.fullName ||
+                                                      employee.username}
+                                                  </span>
+
+                                                  {employee.username &&
+                                                    employee.fullName && (
+                                                      <span className="block text-[9px] text-slate-500 truncate">
+                                                        @
+                                                        {
+                                                          employee.username
+                                                        }
+                                                      </span>
+                                                    )}
+
+                                                </span>
+
+                                              </button>
+
+                                            );
+                                          }
+                                        )
+
+                                      )}
+
+                                    </div>
+
+                                  </div>
+
+                                )}
+
+                              </div>
+
+                            </td>
+
+                            {/* PRIORITY */}
+
+                            <td className="px-3 py-3 align-top">
+
+                              <select
+                                value={
+                                  task.priority
+                                }
+                                onChange={(
+                                  e
+                                ) =>
+                                  updateBulkTask(
+                                    index,
+                                    'priority',
+                                    e.target
+                                      .value
+                                  )
+                                }
+                                className="form-select text-xs w-full"
+                              >
+
+                                <option value="LOW">
+                                  Low
+                                </option>
+
+                                <option value="MEDIUM">
+                                  Medium
+                                </option>
+
+                                <option value="HIGH">
+                                  High
+                                </option>
+
+                                <option value="CRITICAL">
+                                  Critical
+                                </option>
+
+                              </select>
+
+                            </td>
+
+                            {/* HOURS */}
+
+                            <td className="px-3 py-3 align-top">
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={
+                                  task.estimatedHours
+                                }
+                                onChange={(
+                                  e
+                                ) =>
+                                  updateBulkTask(
+                                    index,
+                                    'estimatedHours',
+                                    e.target
+                                      .value
+                                  )
+                                }
+                                className="form-input text-xs w-full"
+                              />
+
+                            </td>
+
+                            {/* DATE */}
+
+                            <td className="px-3 py-3 align-top">
+
+                              <input
+                                type="date"
+                                value={
+                                  task.dueDate
+                                }
+                                onChange={(
+                                  e
+                                ) =>
+                                  updateBulkTask(
+                                    index,
+                                    'dueDate',
+                                    e.target
+                                      .value
+                                  )
+                                }
+                                className="form-input text-xs w-full"
+                              />
+
+                            </td>
+
+                            {/* DESCRIPTION */}
+
+                            <td className="px-3 py-3 align-top">
+
+                              <input
+                                type="text"
+                                value={
+                                  task.description
+                                }
+                                onChange={(
+                                  e
+                                ) =>
+                                  updateBulkTask(
+                                    index,
+                                    'description',
+                                    e.target
+                                      .value
+                                  )
+                                }
+                                placeholder="Short description"
+                                className="form-input text-xs w-full"
+                              />
+
+                            </td>
+
+                            {/* ACTIONS */}
+
+                            <td className="px-3 py-3 align-top">
+
+                              <div className="flex items-center justify-center gap-1">
+
+                                <button
+                                  type="button"
+                                  title="Duplicate task"
+                                  onClick={() =>
+                                    duplicateBulkTaskRow(
                                       index
                                     )
                                   }
                                   disabled={
                                     bulkSubmitting
                                   }
-                                  className="p-2 rounded-md text-slate-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                  className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition"
                                 >
-
-                                  <Trash2 className="w-3.5 h-3.5" />
-
+                                  <Copy className="w-3.5 h-3.5" />
                                 </button>
 
-                              )}
+                                {bulkTasks.length >
+                                  1 && (
 
-                            </div>
+                                  <button
+                                    type="button"
+                                    title="Remove task"
+                                    onClick={() =>
+                                      removeBulkTaskRow(
+                                        index
+                                      )
+                                    }
+                                    disabled={
+                                      bulkSubmitting
+                                    }
+                                    className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
 
-                          </td>
+                                )}
 
-                        </tr>
+                              </div>
 
-                      )
+                            </td>
+
+                          </tr>
+
+                        );
+                      }
                     )}
 
                   </tbody>
@@ -1967,13 +2394,15 @@ export const TaskList = () => {
 
             </div>
 
-            {/* PROGRESS */}
+            {/* =================================================
+                PROGRESS
+            ================================================= */}
 
             {bulkSubmitting && (
 
-              <div className="mt-4 p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+              <div className="mt-4 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
 
-                <div className="flex justify-between text-[11px] mb-2">
+                <div className="flex justify-between text-xs mb-2">
 
                   <span className="text-slate-300">
                     Creating tasks...
@@ -2014,14 +2443,24 @@ export const TaskList = () => {
 
             )}
 
-            {/* BUTTONS */}
+            {/* =================================================
+                FOOTER
+            ================================================= */}
 
-            <div className="flex justify-between items-center gap-2 pt-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-5">
 
-              <div className="text-[10px] text-slate-500">
+              <div>
 
-                {bulkTasks.length}{' '}
-                task rows • Empty rows will be skipped
+                <p className="text-[10px] text-slate-500">
+                  {
+                    bulkTasks.length
+                  }{' '}
+                  task rows
+                </p>
+
+                <p className="text-[10px] text-slate-600 mt-0.5">
+                  Add tasks one at a time using "Add Task".
+                </p>
 
               </div>
 
@@ -2046,12 +2485,15 @@ export const TaskList = () => {
                     bulkSubmitting ||
                     !projectId
                   }
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-primary btn-sm min-w-[150px]"
                 >
 
                   {bulkSubmitting
                     ? `Creating ${bulkProgress.completed}/${bulkProgress.total}...`
-                    : `Create ${bulkTasks.length} Tasks`}
+                    : `Create ${bulkTasks.filter(
+                        (task) =>
+                          task.title?.trim()
+                      ).length} Tasks`}
 
                 </button>
 
@@ -2068,3 +2510,5 @@ export const TaskList = () => {
     </div>
   );
 };
+
+export default TaskList;
