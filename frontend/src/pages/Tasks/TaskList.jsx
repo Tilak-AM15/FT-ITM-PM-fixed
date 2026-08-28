@@ -108,6 +108,13 @@ const [openAssigneeRow, setOpenAssigneeRow] = useState(null);
 
 /*
 
+Text typed into the open assignee dropdown's search box.
+Resets whenever a different row's dropdown is opened/closed.
+*/
+const [assigneeSearchTerm, setAssigneeSearchTerm] = useState('');
+
+/*
+
 Used for closing the custom dropdown when clicking outside.
 */
 const assigneeDropdownRefs = useRef({});
@@ -1952,55 +1959,54 @@ return (
 
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
+                                setAssigneeSearchTerm(
+                                  ''
+                                );
                                 setOpenAssigneeRow(
                                   isDropdownOpen
                                     ? null
                                     : index
-                                )
-                              }
+                                );
+                              }}
                               disabled={
                                 loadingFormData ||
                                 bulkSubmitting
                               }
-                              className="w-full min-h-[42px] px-3 py-2 rounded-lg border border-white/10 bg-slate-900 text-left hover:border-indigo-500/40 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                              className="assignee-trigger"
                             >
 
-                              <div className="flex items-center justify-between gap-2">
+                              <span className="assignee-trigger__label">
 
-                                <div className="flex items-center gap-2 min-w-0">
+                                <Users className="w-4 h-4 text-indigo-400" />
 
-                                  <Users className="w-4 h-4 text-indigo-400 shrink-0" />
+                                {selectedEmployees.length ===
+                                0 ? (
 
-                                  {selectedEmployees.length ===
-                                  0 ? (
+                                  <span>
+                                    Select assignees
+                                  </span>
 
-                                    <span className="text-xs text-slate-500">
-                                      Select assignees
-                                    </span>
+                                ) : (
 
-                                  ) : (
+                                  <span className="has-selection">
+                                    {
+                                      selectedEmployees.length
+                                    }{' '}
+                                    selected
+                                  </span>
 
-                                    <span className="text-xs text-slate-200 truncate">
-                                      {
-                                        selectedEmployees.length
-                                      }{' '}
-                                      selected
-                                    </span>
+                                )}
 
-                                  )}
+                              </span>
 
-                                </div>
-
-                                <ChevronDown
-                                  className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${
-                                    isDropdownOpen
-                                      ? 'rotate-180'
-                                      : ''
-                                  }`}
-                                />
-
-                              </div>
+                              <ChevronDown
+                                className={`assignee-trigger__chevron ${
+                                  isDropdownOpen
+                                    ? 'is-open'
+                                    : ''
+                                }`}
+                              />
 
                             </button>
 
@@ -2009,7 +2015,7 @@ return (
                             {selectedEmployees.length >
                               0 && (
 
-                              <div className="flex flex-wrap gap-1 mt-2">
+                              <div className="assignee-chips">
 
                                 {selectedEmployees
                                   .slice(
@@ -2025,10 +2031,10 @@ return (
                                         key={
                                           employee.id
                                         }
-                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-200"
+                                        className="assignee-chip"
                                       >
 
-                                        <span className="truncate max-w-[120px]">
+                                        <span>
                                           {employee.fullName ||
                                             employee.username}
                                         </span>
@@ -2045,7 +2051,6 @@ return (
                                               employee.id
                                             );
                                           }}
-                                          className="text-slate-500 hover:text-rose-300"
                                         >
                                           <X className="w-3 h-3" />
                                         </button>
@@ -2058,7 +2063,7 @@ return (
                                 {selectedEmployees.length >
                                   3 && (
 
-                                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-800 border border-white/10 text-[10px] text-slate-400">
+                                  <span className="assignee-chip-more">
                                     +
                                     {selectedEmployees.length -
                                       3}{' '}
@@ -2073,21 +2078,51 @@ return (
 
                             {/* DROPDOWN MENU */}
 
-                            {isDropdownOpen && (
+                            {isDropdownOpen && (() => {
 
-                              <div className="absolute left-0 top-full mt-2 w-[280px] z-[100] rounded-xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/40 overflow-hidden">
+                              const query =
+                                assigneeSearchTerm
+                                  .trim()
+                                  .toLowerCase();
 
-                                <div className="px-3 py-2.5 border-b border-white/10 flex items-center justify-between">
+                              const visibleEmployees =
+                                !query
+                                  ? assignableEmployees
+                                  : assignableEmployees.filter(
+                                      (employee) =>
+                                        (
+                                          employee.fullName ||
+                                          ''
+                                        )
+                                          .toLowerCase()
+                                          .includes(
+                                            query
+                                          ) ||
+                                        (
+                                          employee.username ||
+                                          ''
+                                        )
+                                          .toLowerCase()
+                                          .includes(
+                                            query
+                                          )
+                                    );
+
+                              return (
+
+                              <div className="assignee-panel">
+
+                                <div className="assignee-panel__head">
 
                                   <div>
 
-                                    <p className="text-xs font-semibold text-white">
+                                    <strong>
                                       Assign team members
-                                    </p>
+                                    </strong>
 
-                                    <p className="text-[9px] text-slate-500 mt-0.5">
+                                    <small>
                                       Select one or more
-                                    </p>
+                                    </small>
 
                                   </div>
 
@@ -2102,7 +2137,6 @@ return (
                                           []
                                         )
                                       }
-                                      className="text-[10px] text-indigo-300 hover:text-indigo-200"
                                     >
                                       Clear
                                     </button>
@@ -2111,22 +2145,45 @@ return (
 
                                 </div>
 
-                                <div className="max-h-[230px] overflow-y-auto p-1.5">
+                                <div className="assignee-panel__search">
+
+                                  <Search />
+
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    placeholder="Search employees..."
+                                    value={
+                                      assigneeSearchTerm
+                                    }
+                                    onChange={(
+                                      e
+                                    ) =>
+                                      setAssigneeSearchTerm(
+                                        e.target
+                                          .value
+                                      )
+                                    }
+                                  />
+
+                                </div>
+
+                                <div className="assignee-panel__list">
 
                                   {loadingFormData ? (
 
-                                    <div className="px-3 py-5 text-center text-xs text-slate-500">
+                                    <div className="assignee-empty">
                                       Loading employees...
                                     </div>
 
                                   ) : assignableEmployees.length ===
                                     0 ? (
 
-                                    <div className="px-3 py-5 text-center">
+                                    <div className="assignee-empty">
 
-                                      <Users className="w-5 h-5 mx-auto text-slate-600 mb-2" />
+                                      <Users className="w-5 h-5 mx-auto mb-2" />
 
-                                      <p className="text-xs text-slate-500">
+                                      <p>
                                         {projectMemberIds.length >
                                         0
                                           ? 'No active project members'
@@ -2135,9 +2192,20 @@ return (
 
                                     </div>
 
+                                  ) : visibleEmployees.length ===
+                                    0 ? (
+
+                                    <div className="assignee-empty">
+                                      No employees match "
+                                      {
+                                        assigneeSearchTerm
+                                      }
+                                      "
+                                    </div>
+
                                   ) : (
 
-                                    assignableEmployees.map(
+                                    visibleEmployees.map(
                                       (
                                         employee
                                       ) => {
@@ -2167,26 +2235,20 @@ return (
                                                 employee.id
                                               )
                                             }
-                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition ${
+                                            className={`assignee-option ${
                                               isSelected
-                                                ? 'bg-indigo-500/10'
-                                                : 'hover:bg-white/5'
+                                                ? 'is-selected'
+                                                : ''
                                             }`}
                                           >
 
-                                            <span
-                                              className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                                                isSelected
-                                                  ? 'bg-indigo-500 border-indigo-500'
-                                                  : 'border-slate-600 bg-slate-950'
-                                              }`}
-                                            >
+                                            <span className="assignee-option__check">
                                               {isSelected && (
-                                                <Check className="w-3 h-3 text-white" />
+                                                <Check className="w-3 h-3" />
                                               )}
                                             </span>
 
-                                            <span className="w-7 h-7 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-[10px] font-bold text-slate-300">
+                                            <span className="assignee-option__avatar">
                                               {(
                                                 employee.fullName ||
                                                 employee.username ||
@@ -2198,16 +2260,16 @@ return (
                                                 .toUpperCase()}
                                             </span>
 
-                                            <span className="min-w-0 flex-1">
+                                            <span className="assignee-option__copy">
 
-                                              <span className="block text-xs text-slate-200 truncate">
+                                              <span className="assignee-option__name">
                                                 {employee.fullName ||
                                                   employee.username}
                                               </span>
 
                                               {employee.username &&
                                                 employee.fullName && (
-                                                  <span className="block text-[9px] text-slate-500 truncate">
+                                                  <span className="assignee-option__username">
                                                     @
                                                     {
                                                       employee.username
@@ -2229,7 +2291,8 @@ return (
 
                               </div>
 
-                            )}
+                              );
+                            })()}
 
                           </div>
 
