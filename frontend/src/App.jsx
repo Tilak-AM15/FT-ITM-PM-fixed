@@ -29,7 +29,7 @@ const ProtectedLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-hidden">
+    <div className="pm-app-shell">
       {/* Background Ambient Glow */}
       <div className="ambient-glow" />
 
@@ -39,12 +39,14 @@ const ProtectedLayout = () => {
         onOpenTimeModal={() => setIsTimeModalOpen(true)}
       />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="pm-app-body">
         {/* Responsive Sidebar */}
         <Sidebar />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 relative z-10 max-w-7xl mx-auto w-full">
+        <main className="pm-main-content">
+          {/* Centers all page content in the space next to the sidebar */}
+          <div className="pm-content-center">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
@@ -76,6 +78,7 @@ const ProtectedLayout = () => {
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          </div>
         </main>
       </div>
     </div>
