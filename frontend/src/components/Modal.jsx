@@ -1,6 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  createPortal,
+} from 'react-dom';
+
+import {
+  X,
+} from 'lucide-react';
 
 export const Modal = ({
   isOpen,
@@ -8,25 +17,30 @@ export const Modal = ({
   title,
   children,
 }) => {
-  const [visible, setVisible] = useState(false);
+  const [isVisible, setIsVisible] =
+    useState(false);
 
-  // ---------------------------------------------------------
-  // OPEN / CLOSE ANIMATION
-  // ---------------------------------------------------------
+  // =========================================================
+  // OPEN ANIMATION
+  // =========================================================
 
   useEffect(() => {
     if (isOpen) {
+      // Small delay allows the initial state to render first,
+      // then the zoom animation starts.
       requestAnimationFrame(() => {
-        setVisible(true);
+        setIsVisible(true);
       });
-    } else {
-      setVisible(false);
+
+      return;
     }
+
+    setIsVisible(false);
   }, [isOpen]);
 
-  // ---------------------------------------------------------
+  // =========================================================
   // ESC KEY
-  // ---------------------------------------------------------
+  // =========================================================
 
   useEffect(() => {
     if (!isOpen) {
@@ -35,7 +49,7 @@ export const Modal = ({
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
-        closeModal();
+        handleClose();
       }
     };
 
@@ -52,9 +66,9 @@ export const Modal = ({
     };
   }, [isOpen]);
 
-  // ---------------------------------------------------------
-  // PREVENT BACKGROUND PAGE SCROLL
-  // ---------------------------------------------------------
+  // =========================================================
+  // LOCK BACKGROUND SCROLL
+  // =========================================================
 
   useEffect(() => {
     if (!isOpen) {
@@ -64,7 +78,8 @@ export const Modal = ({
     const previousOverflow =
       document.body.style.overflow;
 
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow =
+      'hidden';
 
     return () => {
       document.body.style.overflow =
@@ -72,61 +87,67 @@ export const Modal = ({
     };
   }, [isOpen]);
 
-  // ---------------------------------------------------------
-  // CLOSE
-  // ---------------------------------------------------------
+  // =========================================================
+  // CLOSE WITH ANIMATION
+  // =========================================================
 
-  const closeModal = () => {
-    setVisible(false);
+  const handleClose = () => {
+    setIsVisible(false);
 
+    /*
+     * Wait for zoom-out animation before
+     * calling the parent's onClose.
+     */
     setTimeout(() => {
-      if (onClose) {
-        onClose();
-      }
+      onClose?.();
     }, 180);
   };
+
+  // =========================================================
+  // DON'T RENDER
+  // =========================================================
 
   if (!isOpen) {
     return null;
   }
 
-  // ---------------------------------------------------------
-  // MODAL
-  // ---------------------------------------------------------
+  // =========================================================
+  // MODAL CONTENT
+  //
+  // createPortal() is important here.
+  //
+  // It moves the modal directly under <body>,
+  // preventing parent containers/layouts from
+  // affecting the popup.
+  // =========================================================
 
-  const modalContent = (
+  const modal = (
     <div
-      className="
-        fixed
-        inset-0
-        z-[99999]
-        flex
-        items-center
-        justify-center
-        p-3
-        sm:p-5
-        lg:p-8
-      "
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-5 lg:p-8"
+      style={{
+        position: 'fixed',
+        inset: 0,
+      }}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="pmtrack-modal-title"
+      aria-labelledby="modal-title"
     >
 
       {/* ===================================================
-          FULL SCREEN BACKDROP
-          This blurs EVERYTHING behind the modal.
-      =================================================== */}
+          BACKDROP
+      ==================================================== */}
 
       <div
         className={`
           absolute
           inset-0
-          bg-slate-950/70
-          backdrop-blur-md
+          bg-slate-950/80
+          backdrop-blur-[3px]
           transition-opacity
           duration-200
+          ease-out
           ${
-            visible
+            isVisible
               ? 'opacity-100'
               : 'opacity-0'
           }
@@ -136,120 +157,120 @@ export const Modal = ({
             event.target ===
             event.currentTarget
           ) {
-            closeModal();
+            handleClose();
           }
         }}
       />
 
       {/* ===================================================
-          CENTERED MODAL
-      =================================================== */}
+          POPUP
+      ==================================================== */}
 
       <div
         className={`
           relative
           z-10
-          flex
           w-full
           max-w-[1500px]
           max-h-[92vh]
+          flex
           flex-col
           overflow-hidden
           rounded-2xl
           border
           border-white/10
           bg-slate-950
-          shadow-[0_30px_100px_rgba(0,0,0,0.70)]
+          shadow-[0_25px_80px_rgba(0,0,0,0.65)]
           transition-all
           duration-200
           ease-out
           ${
-            visible
+            isVisible
               ? 'opacity-100 scale-100 translate-y-0'
               : 'opacity-0 scale-95 translate-y-2'
           }
         `}
-        onMouseDown={(event) => {
-          event.stopPropagation();
-        }}
+        onMouseDown={(event) =>
+          event.stopPropagation()
+        }
       >
 
         {/* =================================================
             HEADER
-        ================================================= */}
+        ================================================== */}
 
         <div
           className="
             flex
-            shrink-0
             items-center
             justify-between
             gap-4
+            px-5
+            sm:px-6
+            py-4
+            shrink-0
             border-b
             border-white/10
             bg-slate-950
-            px-5
-            py-4
-            sm:px-6
           "
         >
 
           <div className="min-w-0">
 
             <h2
-              id="pmtrack-modal-title"
+              id="modal-title"
               className="
-                truncate
                 text-base
+                sm:text-lg
                 font-bold
                 text-white
-                sm:text-lg
+                truncate
               "
             >
               {title}
             </h2>
 
-            <p className="mt-0.5 text-[10px] text-slate-500">
-              Future Transformation • PMTrack
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              Future Transformation
             </p>
 
           </div>
 
           <button
             type="button"
-            onClick={closeModal}
+            onClick={handleClose}
             className="
-              flex
-              h-9
-              w-9
               shrink-0
-              items-center
-              justify-center
+              w-9
+              h-9
               rounded-lg
               border
               border-white/10
               bg-white/5
+              flex
+              items-center
+              justify-center
               text-slate-400
-              transition
-              hover:border-white/20
-              hover:bg-white/10
               hover:text-white
+              hover:bg-white/10
+              hover:border-white/20
+              transition
             "
-            aria-label="Close"
+            aria-label="Close modal"
           >
-            <X className="h-5 w-5" />
+            <X className="w-5 h-5" />
           </button>
 
         </div>
 
         {/* =================================================
-            BODY
-        ================================================= */}
+            MODAL BODY
+        ================================================== */}
 
         <div
           className="
-            min-h-0
             flex-1
+            min-h-0
             overflow-y-auto
             overflow-x-hidden
           "
@@ -259,12 +280,14 @@ export const Modal = ({
             className="
               w-full
               px-4
-              py-5
               sm:px-6
-              lg:px-8
+              lg:px-7
+              py-5
             "
           >
+
             {children}
+
           </div>
 
         </div>
@@ -275,11 +298,11 @@ export const Modal = ({
   );
 
   // =========================================================
-  // RENDER DIRECTLY UNDER BODY
+  // RENDER DIRECTLY INTO BODY
   // =========================================================
 
   return createPortal(
-    modalContent,
+    modal,
     document.body
   );
 };
