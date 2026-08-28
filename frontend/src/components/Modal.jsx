@@ -10,24 +10,24 @@ export const Modal = ({
 }) => {
 
   // =========================================================
-  // LOCK BACKGROUND SCROLL
+  // LOCK BACKGROUND PAGE
   // =========================================================
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const originalOverflow = document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
 
     document.body.style.overflow = 'hidden';
 
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = previousOverflow;
     };
   }, [isOpen]);
 
 
   // =========================================================
-  // ESC KEY
+  // ESCAPE KEY
   // =========================================================
 
   useEffect(() => {
@@ -35,14 +35,12 @@ export const Modal = ({
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
         onClose();
       }
     };
 
-    document.addEventListener(
-      'keydown',
-      handleEscape
-    );
+    document.addEventListener('keydown', handleEscape);
 
     return () => {
       document.removeEventListener(
@@ -54,7 +52,7 @@ export const Modal = ({
 
 
   // =========================================================
-  // DON'T RENDER
+  // CLOSED
   // =========================================================
 
   if (!isOpen) {
@@ -63,7 +61,7 @@ export const Modal = ({
 
 
   // =========================================================
-  // MODAL
+  // POPUP
   // =========================================================
 
   return (
@@ -71,16 +69,12 @@ export const Modal = ({
       className="
         fixed
         inset-0
-        z-[9999]
-        flex
-        items-center
-        justify-center
-        p-4
+        z-[99999]
       "
     >
 
       {/* =====================================================
-          BACKDROP
+          BACKGROUND OVERLAY
       ====================================================== */}
 
       <div
@@ -88,110 +82,150 @@ export const Modal = ({
           absolute
           inset-0
           bg-black/70
+          backdrop-blur-[2px]
         "
         onClick={onClose}
       />
 
 
       {/* =====================================================
-          MODAL BOX
+          POPUP POSITIONING AREA
+
+          This is fixed to the screen.
       ====================================================== */}
 
       <div
-        className={`
-          relative
-          z-10
-          ${maxWidth}
-          w-full
-          max-h-[90vh]
-          rounded-2xl
-          bg-slate-900
-          border
-          border-white/10
-          shadow-2xl
+        className="
+          absolute
+          inset-0
           flex
-          flex-col
-          overflow-hidden
-        `}
+          items-center
+          justify-center
+          p-3
+          sm:p-5
+          lg:p-8
+        "
       >
 
         {/* ===================================================
-            HEADER
+            POPUP WINDOW
+
+            IMPORTANT:
+            max-height prevents it going outside screen.
+
+            overflow-y-auto allows the WHOLE popup content
+            to scroll.
         ==================================================== */}
 
         <div
-          className="
-            flex
-            items-center
-            justify-between
-            shrink-0
-            px-5
-            py-4
-            border-b
-            border-white/10
+          className={`
+            relative
+            ${maxWidth}
+            w-full
+            max-h-[calc(100vh-24px)]
+            sm:max-h-[calc(100vh-40px)]
+            lg:max-h-[calc(100vh-64px)]
+            overflow-y-auto
+            overflow-x-hidden
+            rounded-2xl
+            border
+            border-slate-700
             bg-slate-900
-          "
+            shadow-[0_25px_100px_rgba(0,0,0,0.75)]
+          `}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
         >
 
-          <div className="min-w-0">
+          {/* =================================================
+              HEADER
+          ================================================== */}
 
-            <h2
+          <div
+            className="
+              sticky
+              top-0
+              z-50
+              flex
+              items-center
+              justify-between
+              gap-4
+              px-5
+              py-4
+              border-b
+              border-white/10
+              bg-slate-900
+            "
+          >
+
+            <div className="min-w-0">
+
+              <h2
+                className="
+                  text-lg
+                  sm:text-xl
+                  font-bold
+                  text-white
+                  truncate
+                "
+              >
+                {title}
+              </h2>
+
+              <p
+                className="
+                  mt-0.5
+                  text-[10px]
+                  uppercase
+                  tracking-wider
+                  text-slate-500
+                "
+              >
+                Future Transformation
+              </p>
+
+            </div>
+
+
+            {/* CLOSE BUTTON */}
+
+            <button
+              type="button"
+              onClick={onClose}
               className="
-                text-lg
-                font-bold
-                text-white
-                truncate
+                flex
+                h-9
+                w-9
+                shrink-0
+                items-center
+                justify-center
+                rounded-lg
+                border
+                border-white/10
+                bg-slate-800
+                text-slate-400
+                transition
+                hover:bg-slate-700
+                hover:text-white
               "
+              aria-label="Close"
             >
-              {title}
-            </h2>
+
+              <X className="h-5 w-5" />
+
+            </button>
 
           </div>
 
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="
-              ml-4
-              flex
-              h-9
-              w-9
-              shrink-0
-              items-center
-              justify-center
-              rounded-lg
-              border
-              border-white/10
-              bg-white/5
-              text-slate-400
-              hover:bg-white/10
-              hover:text-white
-              transition
-            "
-            aria-label="Close"
-          >
+          {/* =================================================
+              FORM CONTENT
 
-            <X className="w-5 h-5" />
+              NO flex-1 HERE.
 
-          </button>
-
-        </div>
-
-
-        {/* ===================================================
-            SCROLLABLE BODY
-        ==================================================== */}
-
-        <div
-          className="
-            flex-1
-            min-h-0
-            overflow-y-auto
-            overflow-x-hidden
-            bg-slate-900
-          "
-        >
+              The popup itself is the scroll container.
+        ================================================== */}
 
           <div
             className="
@@ -206,6 +240,7 @@ export const Modal = ({
             {children}
 
           </div>
+
 
         </div>
 
